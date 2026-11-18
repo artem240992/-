@@ -1,8 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
         android:label="exam_app"
-        android:name="${applicationName}"
+        android:name="\${applicationName}"
         android:icon="@mipmap/launcher_icon">
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -12,29 +13,41 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <!-- Специфическая тема для запуска -->
+
+            <!-- Стандартная тема Flutter -->
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
-                android:resource="@style/NormalTheme"
-                />
+                android:resource="@style/NormalTheme" />
+
+            <!-- Основной фильтр запуска приложения -->
             <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Deep Link для возврата из RuStore -->
+
+            <!-- Фильтр для возврата из Яндекс.OAuth (Deep Link) -->
+            <!-- ВАЖНО: meta-data вынесен отсюда! Он должен быть на уровне activity или application -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="${YANDEX_CLIENT_ID}" android:host="oauth" />
+                <!-- Схема должна совпадать с вашим YANDEX_CLIENT_ID (без точек и спецсимволов, если требует плагин) -->
+                <data android:scheme="\${YANDEX_CLIENT_ID}" android:host="oauth" />
+            </intent-filter>
+
+            <!-- Фильтр для возврата из RuStore Pay -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="com.example.exam_app.rustore" />
             </intent-filter>
         </activity>
 
-        <!-- Метаданные для Yandex Auth должны быть здесь -->
-        <meta-data android:name="com.yandex.auth.CLIENT_ID" android:value="${YANDEX_CLIENT_ID}" />
+        <!-- ЕДИНСТВЕННОЕ правильное место для CLIENT_ID -->
+        <meta-data android:name="com.yandex.auth.CLIENT_ID" android:value="\${YANDEX_CLIENT_ID}" />
 
-        <!-- Метаданные для автоматической инициализации RuStore Pay SDK -->
+        <!-- Метаданные для RuStore Pay SDK -->
         <meta-data android:name="console_app_id_value" android:value="137792973" />
         <meta-data android:name="sdk_pay_scheme_value" android:value="com.example.exam_app.rustore" />
 
@@ -42,10 +55,16 @@
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
+
+    <!-- Разрешения сети -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Запросы к другим приложениям (опционально, но полезно) -->
     <queries>
         <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT"/>
-            <data android:mimeType="text/plain"/>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
         </intent>
     </queries>
 </manifest>
