@@ -1,9 +1,5 @@
-package com.example.exam_app // ЗАМЕНИТЕ на ваш реальный пакет из build.gradle
+package com.example.exam_app
 
-import io.flutter.embedding.android.FlutterFragmentActivity
+import io.flutter.embedding.android.FlutterActivity
 
-class MainActivity: FlutterFragmentActivity() {
-    // Пустой класс. Не добавляйте сюда ничего лишнего.
-    // Если здесь есть onCreate или другие методы - удалите их,
-    // если они не нужны для других плагинов.
-}
+class MainActivity : FlutterActivity()

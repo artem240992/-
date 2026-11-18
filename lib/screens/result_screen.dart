@@ -57,7 +57,7 @@ class _ResultScreenState extends State<ResultScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Ошибка при выгрузке: \$e'),
+          content: Text('Ошибка при выгрузке: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -159,7 +159,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Проходной балл — \$kPassPercent%',
+                  'Проходной балл — $kPassPercent%',
                   style: const TextStyle(
                     fontSize: 12,
                     color: Color(0xFF94A3B8),
@@ -243,7 +243,7 @@ class _ResultScreenState extends State<ResultScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Ваш ответ: \$givenText', // ИСПРАВЛЕНО: интерполяция
+                          'Ваш ответ: $givenText', // ИСПРАВЛЕНО: интерполяция
                           style: TextStyle(
                             fontSize: 13,
                             color: ok
@@ -254,7 +254,7 @@ class _ResultScreenState extends State<ResultScreen> {
                         if (!ok) ...[
                           const SizedBox(height: 3),
                           Text(
-                            'Правильный ответ: \$correctText', // ИСПРАВЛЕНО: используем подготовленную переменную
+                            'Правильный ответ: $correctText', // ИСПРАВЛЕНО: используем подготовленную переменную
                             style: const TextStyle(
                               fontSize: 13,
                               color: Color(0xFF16A34A),
@@ -264,7 +264,7 @@ class _ResultScreenState extends State<ResultScreen> {
                         if (q.hint != null && q.hint!.isNotEmpty) ...[
                           const SizedBox(height: 6),
                           Text(
-                            'Подсказка: \${q.hint}', // ИСПРАВЛЕНО: выражение в фигурных скобках
+                            'Подсказка: ${q.hint}', // ИСПРАВЛЕНО: выражение в фигурных скобках
                             style: const TextStyle(
                               fontSize: 12.5,
                               color: Colors.orange,
