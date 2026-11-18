@@ -26,9 +26,13 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="${YANDEX_CLIENT_ID}" android:host="oauth" />
                 <data android:scheme="com.example.exam_app.rustore" />
             </intent-filter>
         </activity>
+
+        <!-- Метаданные для Yandex Auth должны быть здесь -->
+        <meta-data android:name="com.yandex.auth.CLIENT_ID" android:value="${YANDEX_CLIENT_ID}" />
 
         <!-- Метаданные для автоматической инициализации RuStore Pay SDK -->
         <meta-data android:name="console_app_id_value" android:value="137792973" />

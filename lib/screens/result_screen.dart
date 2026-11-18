@@ -2,15 +2,80 @@ import 'package:flutter/material.dart';
 
 import '../models.dart';
 import '../utils.dart';
+import '../storage.dart';
+import '../services/yandex_disk_service.dart';
+import '../services/token_storage.dart'; // <-- Добавлено для проверки токена
+import 'yandex_auth_screen.dart'; // <-- Добавлено для перехода на экран авторизации
 
-class ResultScreen extends StatelessWidget {
+class ResultScreen extends StatefulWidget {
   final ExamResult result;
   final Ticket ticket;
 
   const ResultScreen({super.key, required this.result, required this.ticket});
 
   @override
+  State<ResultScreen> createState() => _ResultScreenState();
+}
+
+class _ResultScreenState extends State<ResultScreen> {
+  bool _isUploading = false;
+  final _diskService = YandexDiskService();
+
+  Future<void> _uploadToDisk() async {
+    // 1. Проверяем, есть ли сохраненный токен (безопасное хранилище)
+    final hasToken = await TokenStorage.hasToken();
+
+    // 2. Если токена нет, предлагаем авторизоваться через Яндекс
+    if (!hasToken) {
+      if (!mounted) return;
+      final authenticated = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(builder: (_) => const YandexAuthScreen()),
+      );
+
+      // Если пользователь закрыл экран или отменил вход — прерываем процесс
+      if (authenticated != true) return;
+    }
+
+    final user = AppStorage.instance.currentUser;
+    if (user == null) return;
+
+    setState(() => _isUploading = true);
+
+    try {
+      // 3. Загружаем результат (Сервис сам достанет токен из хранилища)
+      await _diskService.uploadResult(
+        result: widget.result,
+        ticket: widget.ticket,
+        student: user,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Результат успешно сохранён на Яндекс.Диск!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка при выгрузке: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Локальные переменные для удобства чтения
+    final result = widget.result;
+    final ticket = widget.ticket;
+
     final passed = result.passed;
     final accent = passed ? const Color(0xFF16A34A) : const Color(0xFFDC2626);
 
@@ -25,6 +90,7 @@ class ResultScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
         children: [
+          // ==================== ГЛАВНАЯ КАРТОЧКА РЕЗУЛЬТАТА ====================
           Container(
             padding: const EdgeInsets.fromLTRB(16, 26, 16, 26),
             decoration: BoxDecoration(
@@ -88,6 +154,7 @@ class ResultScreen extends StatelessWidget {
             ),
           ),
 
+          // ==================== РАЗБОР ОТВЕТОВ ====================
           const SizedBox(height: 20),
           const Padding(
             padding: EdgeInsets.only(left: 4, bottom: 10),
@@ -149,7 +216,31 @@ class ResultScreen extends StatelessWidget {
             );
           }),
 
+          // ==================== КНОПКИ ДЕЙСТВИЙ ====================
           const SizedBox(height: 14),
+
+          // Кнопка выгрузки на Яндекс.Диск
+          OutlinedButton.icon(
+            onPressed: _isUploading ? null : _uploadToDisk,
+            icon: _isUploading
+                ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+                : const Icon(Icons.cloud_upload_outlined),
+            label: Text(_isUploading ? 'Отправка...' : 'Выгрузить на Яндекс.Диск'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+              foregroundColor: const Color(0xFF1976D2), // Синий цвет Яндекса
+              side: const BorderSide(color: Color(0xFF1976D2)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Кнопка возврата
           FilledButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('К списку билетов'),
