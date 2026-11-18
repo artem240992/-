@@ -16,6 +16,7 @@ dependencies:
   flutter_secure_storage: ^9.2.2
   yandex_auth: ^1.2.0
   yandex_disk: ^0.1.1
+  dio: 4.0.6
 
 dev_dependencies:
   flutter_test:
