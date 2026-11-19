@@ -9,6 +9,7 @@ if (keystorePropertiesFile.exists()) {
 
 plugins {
     id("com.android.application")
+    id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -22,6 +23,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // ❌ Блок kotlinOptions отсюда удалён
 
     signingConfigs {
         create("release") {
@@ -35,6 +37,11 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
+        debug {
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -45,6 +52,13 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         manifestPlaceholders["YANDEX_CLIENT_ID"] = "0d9e114902ec43d4b47b1f8141191557"
+    }
+}
+
+// ✅ ДОБАВЛЕНО: Новый блок для настроек компилятора Kotlin
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 

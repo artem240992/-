@@ -81,7 +81,8 @@ class AppStorage extends ChangeNotifier {
 
   Future<String?> login(String login, String password) async {
     for (final s in db.students) {
-      if (s.login.toLowerCase() == login.toLowerCase() && s.password == password) {
+      if (s.login.toLowerCase() == login.toLowerCase() &&
+          s.password == password) {
         currentUser = s;
         await _prefs?.setString(_sessionKey, s.id);
         currentUserNotifier.value = s;
@@ -100,10 +101,6 @@ class AppStorage extends ChangeNotifier {
   }) async {
     final hasPro = db.students.any((s) => s.isPro);
     final studentCount = db.students.where((s) => !s.isTeacher).length;
-
-    if (!hasPro && studentCount >= kMaxDemoUsers) {
-      return 'Демо-версия ограничена $kMaxDemoUsers студентами. Оплатите Premium, чтобы снять лимит.';
-    }
 
     if (password.length < 4) return 'Пароль должен быть не короче 4 символов';
     if (db.students.any((s) => s.login.toLowerCase() == login.toLowerCase())) {
@@ -167,10 +164,6 @@ class AppStorage extends ChangeNotifier {
   }) async {
     final hasPro = db.students.any((s) => s.isPro);
     final studentCount = db.students.where((s) => !s.isTeacher).length;
-
-    if (!hasPro && studentCount >= kMaxDemoUsers) {
-      return 'Демо-версия ограничена $kMaxDemoUsers студентами. Оплатите Premium, чтобы снять лимит.';
-    }
 
     if (db.students.any((s) => s.login.toLowerCase() == login.toLowerCase())) {
       return 'Такой логин уже занят';
@@ -286,12 +279,16 @@ class AppStorage extends ChangeNotifier {
         final name = item['name'] as String?;
         final group = item['group'] as String?;
 
-        if (login == null || password == null || name == null || group == null) {
+        if (login == null ||
+            password == null ||
+            name == null ||
+            group == null) {
           skippedCount++;
           continue;
         }
 
-        if (db.students.any((s) => s.login.toLowerCase() == login.toLowerCase())) {
+        if (db.students
+            .any((s) => s.login.toLowerCase() == login.toLowerCase())) {
           skippedCount++;
           continue;
         }

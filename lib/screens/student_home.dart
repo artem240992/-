@@ -5,7 +5,6 @@ import '../storage.dart';
 import '../utils.dart';
 import 'exam_screen.dart';
 import 'result_screen.dart';
-import 'premium_screen.dart'; // <-- ДОБАВЛЕН ИМПОРТ
 
 class StudentHome extends StatefulWidget {
   const StudentHome({super.key});
@@ -17,7 +16,11 @@ class StudentHome extends StatefulWidget {
 class _StudentHomeState extends State<StudentHome> {
   int _index = 0;
 
-  static const _titles = ['Экзаменационные билеты', 'История попыток', 'Профиль'];
+  static const _titles = [
+    'Экзаменационные билеты',
+    'История попыток',
+    'Профиль'
+  ];
 
   Future<void> _startExam(Ticket ticket) async {
     final result = await Navigator.of(context).push<ExamResult>(
@@ -51,7 +54,10 @@ class _StudentHomeState extends State<StudentHome> {
             Text(_titles[_index]),
             Text(
               '${user.name} · ${user.group}',
-              style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                  fontSize: 11.5,
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w500),
             ),
           ],
         ),
@@ -68,9 +74,18 @@ class _StudentHomeState extends State<StudentHome> {
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.menu_book_outlined), selectedIcon: Icon(Icons.menu_book), label: 'Билеты'),
-          NavigationDestination(icon: Icon(Icons.bar_chart_outlined), selectedIcon: Icon(Icons.bar_chart), label: 'История'),
-          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Профиль'),
+          NavigationDestination(
+              icon: Icon(Icons.menu_book_outlined),
+              selectedIcon: Icon(Icons.menu_book),
+              label: 'Билеты'),
+          NavigationDestination(
+              icon: Icon(Icons.bar_chart_outlined),
+              selectedIcon: Icon(Icons.bar_chart),
+              label: 'История'),
+          NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: 'Профиль'),
         ],
       ),
     );
@@ -94,7 +109,9 @@ class _TicketsTab extends StatelessWidget {
     final passedCount = tickets.where((t) => best[t.id]?.passed == true).length;
     final avg = results.isEmpty
         ? 0
-        : (results.map((r) => r.percent).reduce((a, b) => a + b) / results.length).round();
+        : (results.map((r) => r.percent).reduce((a, b) => a + b) /
+                results.length)
+            .round();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
@@ -168,7 +185,10 @@ class _TicketTile extends StatelessWidget {
                   alignment: Alignment.center,
                   child: Text(
                     '$number',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: primary),
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: primary),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -178,14 +198,17 @@ class _TicketTile extends StatelessWidget {
                     children: [
                       Text(
                         ticket.title,
-                        style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, height: 1.3),
+                        style: const TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w600,
+                            height: 1.3),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         ticket.questions.isEmpty
                             ? 'Нет вопросов — обратитесь к преподавателю'
                             : '${ticket.questions.length} вопросов · ${kTimeLimit ~/ 60} мин'
-                            '${b != null ? ' · лучший: ${b.percent}%' : ''}',
+                                '${b != null ? ' · лучший: ${b.percent}%' : ''}',
                         style: TextStyle(
                           fontSize: 12,
                           color: ticket.questions.isEmpty
@@ -234,8 +257,11 @@ class _StatusBadge extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
-      child: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fg)),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+      child: Text(text,
+          style:
+              TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fg)),
     );
   }
 }
@@ -258,9 +284,13 @@ class _StatCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(value, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+            Text(value,
+                style:
+                    const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
             const SizedBox(height: 2),
-            Text(label, style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+            Text(label,
+                style:
+                    const TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
           ],
         ),
       ),
@@ -344,7 +374,9 @@ class _HistoryTab extends StatelessWidget {
                   height: 46,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: passed ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+                    color: passed
+                        ? const Color(0xFFDCFCE7)
+                        : const Color(0xFFFEE2E2),
                   ),
                   alignment: Alignment.center,
                   child: Text(
@@ -352,7 +384,9 @@ class _HistoryTab extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w800,
-                      color: passed ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                      color: passed
+                          ? const Color(0xFF16A34A)
+                          : const Color(0xFFDC2626),
                     ),
                   ),
                 ),
@@ -365,12 +399,14 @@ class _HistoryTab extends StatelessWidget {
                         ticket?.title ?? 'Билет удалён',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         '${r.score} из ${r.total} · ${fmtDate(r.date)}',
-                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                        style: const TextStyle(
+                            fontSize: 11.5, color: Color(0xFF64748B)),
                       ),
                     ],
                   ),
@@ -396,7 +432,9 @@ class _ProfileTab extends StatelessWidget {
     final results = storage.resultsFor(user.id);
     final avg = results.isEmpty
         ? 0
-        : (results.map((r) => r.percent).reduce((a, b) => a + b) / results.length).round();
+        : (results.map((r) => r.percent).reduce((a, b) => a + b) /
+                results.length)
+            .round();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
@@ -434,12 +472,9 @@ class _ProfileTab extends StatelessWidget {
                   Text(
                     user.name,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                        fontSize: 17, fontWeight: FontWeight.w700),
                   ),
-                  if (user.isPro) ...[
-                    const SizedBox(width: 6),
-                    const Icon(Icons.verified, color: Colors.amber, size: 20),
-                  ],
                 ],
               ),
               const SizedBox(height: 2),
@@ -450,7 +485,8 @@ class _ProfileTab extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 'Логин: ${user.login}',
-                style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                style:
+                    const TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
               ),
             ],
           ),
@@ -460,7 +496,9 @@ class _ProfileTab extends StatelessWidget {
           children: [
             _StatCard(value: '${results.length}', label: 'Попыток'),
             const SizedBox(width: 9),
-            _StatCard(value: '${results.where((r) => r.passed).length}', label: 'Сдано'),
+            _StatCard(
+                value: '${results.where((r) => r.passed).length}',
+                label: 'Сдано'),
             const SizedBox(width: 9),
             _StatCard(value: '$avg%', label: 'Средний'),
           ],
@@ -475,49 +513,12 @@ class _ProfileTab extends StatelessWidget {
           ),
           child: const Text(
             'Тестирование по экзаменационным билетам.\n'
-                'Проходной балл — 60%, время на билет — 15 минут.\n'
-                'Результаты сохраняются на устройстве.',
-            style: TextStyle(fontSize: 13.5, color: Color(0xFF64748B), height: 1.6),
+            'Проходной балл — 60%, время на билет — 15 минут.\n'
+            'Результаты сохраняются на устройстве.',
+            style: TextStyle(
+                fontSize: 13.5, color: Color(0xFF64748B), height: 1.6),
           ),
         ),
-
-        if (!user.isPro) ...[
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PremiumScreen()),
-              );
-            },
-            icon: const Icon(Icons.workspace_premium),
-            label: const Text('Снять ограничения (Premium)'),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.amber[700],
-              foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(52),
-            ),
-          ),
-        ] else ...[
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.green[50],
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.green[200]!),
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.verified, color: Colors.green),
-                SizedBox(width: 8),
-                Text('Premium активен', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-        ],
-
         const SizedBox(height: 16),
         OutlinedButton.icon(
           onPressed: storage.logout,
@@ -528,7 +529,8 @@ class _ProfileTab extends StatelessWidget {
             foregroundColor: const Color(0xFFDC2626),
             side: const BorderSide(color: Color(0xFFFECACA)),
             backgroundColor: const Color(0xFFFEF2F2),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
         ),
       ],

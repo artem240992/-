@@ -18,6 +18,5 @@ String initials(String name) => name
 const List<String> kLetters = ['А', 'Б', 'В', 'Г', 'Д', 'Е'];
 
 // ==================== ИНФОРМАЦИЯ О ПРИЛОЖЕНИИ ====================
-const String kAppVersion = '1.1.0 (Demo)';
+const String kAppVersion = '1.1.0';
 const String kReleaseDate = '26.11.2026';
-const int kMaxDemoUsers = 2; // Максимум студентов в демо-версии

@@ -42,11 +42,11 @@ class _AuthScreenState extends State<AuthScreen> {
     final err = _isLogin
         ? await storage.login(_loginCtrl.text.trim(), _passCtrl.text)
         : await storage.register(
-      name: _nameCtrl.text.trim(),
-      group: _groupCtrl.text.trim(),
-      login: _loginCtrl.text.trim(),
-      password: _passCtrl.text,
-    );
+            name: _nameCtrl.text.trim(),
+            group: _groupCtrl.text.trim(),
+            login: _loginCtrl.text.trim(),
+            password: _passCtrl.text,
+          );
 
     if (!mounted) return;
     setState(() {
@@ -83,18 +83,22 @@ class _AuthScreenState extends State<AuthScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text('🎓', textAlign: TextAlign.center, style: TextStyle(fontSize: 44)),
+                    const Text('🎓',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 44)),
                     const SizedBox(height: 10),
                     Text(
                       'Экзаменационное тестирование',
                       textAlign: TextAlign.center,
-                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                      style: theme.textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Проверка знаний по экзаменационным билетам',
                       textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF64748B)),
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: const Color(0xFF64748B)),
                     ),
                     const SizedBox(height: 20),
 
@@ -155,7 +159,8 @@ class _AuthScreenState extends State<AuthScreen> {
                       const SizedBox(height: 12),
                       Text(
                         _error!,
-                        style: TextStyle(color: theme.colorScheme.error, fontSize: 13),
+                        style: TextStyle(
+                            color: theme.colorScheme.error, fontSize: 13),
                       ),
                     ],
 
@@ -164,10 +169,11 @@ class _AuthScreenState extends State<AuthScreen> {
                       onPressed: _busy ? null : _submit,
                       child: _busy
                           ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
-                      )
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2.4, color: Colors.white),
+                            )
                           : Text(_isLogin ? 'Войти' : 'Зарегистрироваться'),
                     ),
 
@@ -181,8 +187,8 @@ class _AuthScreenState extends State<AuthScreen> {
                       ),
                       child: Text(
                         'Демо-доступ\n'
-                            'Студент: student / 1234\n'
-                            'Преподаватель: admin / admin',
+                        'Студент: student / 1234\n'
+                        'Преподаватель: admin / admin',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: const Color(0xFF64748B),
@@ -197,8 +203,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     const SizedBox(height: 10),
                     Text(
                       'Версия: $kAppVersion\n'
-                          'Дата релиза: $kReleaseDate\n'
-                          'Демо-версия: до $kMaxDemoUsers пользователей',
+                      'Дата релиза: $kReleaseDate\n',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 11,
@@ -217,13 +222,13 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Widget _field(
-      TextEditingController ctrl,
-      String label,
-      String hint, {
-        bool obscure = false,
-        TextInputAction textInputAction = TextInputAction.next,
-        ValueChanged<String>? onSubmitted,
-      }) {
+    TextEditingController ctrl,
+    String label,
+    String hint, {
+    bool obscure = false,
+    TextInputAction textInputAction = TextInputAction.next,
+    ValueChanged<String>? onSubmitted,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -231,7 +236,10 @@ class _AuthScreenState extends State<AuthScreen> {
           padding: const EdgeInsets.only(left: 4, bottom: 6),
           child: Text(
             label,
-            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+            style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF475569)),
           ),
         ),
         TextFormField(
@@ -241,7 +249,8 @@ class _AuthScreenState extends State<AuthScreen> {
           onFieldSubmitted: onSubmitted,
           autocorrect: false,
           decoration: InputDecoration(hintText: hint),
-          validator: (v) => (v == null || v.trim().isEmpty) ? 'Заполните поле' : null,
+          validator: (v) =>
+              (v == null || v.trim().isEmpty) ? 'Заполните поле' : null,
         ),
       ],
     );
@@ -253,7 +262,8 @@ class _SegButton extends StatelessWidget {
   final bool active;
   final VoidCallback onTap;
 
-  const _SegButton({required this.text, required this.active, required this.onTap});
+  const _SegButton(
+      {required this.text, required this.active, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -268,7 +278,12 @@ class _SegButton extends StatelessWidget {
             color: active ? Colors.white : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             boxShadow: active
-                ? [const BoxShadow(color: Color(0x1F0F172A), blurRadius: 4, offset: Offset(0, 1))]
+                ? [
+                    const BoxShadow(
+                        color: Color(0x1F0F172A),
+                        blurRadius: 4,
+                        offset: Offset(0, 1))
+                  ]
                 : null,
           ),
           alignment: Alignment.center,
@@ -277,7 +292,9 @@ class _SegButton extends StatelessWidget {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: active ? Theme.of(context).colorScheme.primary : const Color(0xFF64748B),
+              color: active
+                  ? Theme.of(context).colorScheme.primary
+                  : const Color(0xFF64748B),
             ),
           ),
         ),
