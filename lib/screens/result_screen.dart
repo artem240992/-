@@ -5,6 +5,7 @@ import '../utils.dart';
 import '../storage.dart';
 import '../services/yandex_disk_service.dart';
 import '../services/token_storage.dart';
+import '../services/local_file_service.dart';
 import 'yandex_auth_screen.dart';
 
 class ResultScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class ResultScreen extends StatefulWidget {
 
 class _ResultScreenState extends State<ResultScreen> {
   bool _isUploading = false;
+  bool _saving = false; // <-- ДОБАВЛЕНО
   final _diskService = YandexDiskService();
 
   Future<void> _uploadToDisk() async {
@@ -63,6 +65,35 @@ class _ResultScreenState extends State<ResultScreen> {
       );
     } finally {
       if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  Future<void> _saveToDevice() async {
+    final user = AppStorage.instance.currentUser;
+    if (user == null) return;
+
+    setState(() => _saving = true);
+    try {
+      final path = await LocalFileService.saveResultWithPicker(
+        result: widget.result,
+        ticket: widget.ticket,
+        student: user,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Файл сохранён: $path')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final cancelled = e.toString().contains('Сохранение отменено');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(cancelled ? 'Сохранение отменено' : 'Ошибка сохранения: $e'),
+          backgroundColor: cancelled ? Colors.grey[700] : Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -127,7 +158,7 @@ class _ResultScreenState extends State<ResultScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '\${result.percent}%',
+                            '${result.percent}%',
                             style: const TextStyle(
                               fontSize: 13,
                               color: Color(0xFF64748B),
@@ -185,17 +216,14 @@ class _ResultScreenState extends State<ResultScreen> {
           ),
           ...List.generate(ticket.questions.length, (i) {
             final q = ticket.questions[i];
-            // Защита от выхода за границы массива
             final givenIndex = (i < result.answers.length) ? result.answers[i] : null;
             final ok = givenIndex == q.correct;
 
-            // Безопасное получение текста ответа
             String givenText = 'нет ответа';
             if (givenIndex != null && givenIndex < q.options.length) {
               givenText = q.options[givenIndex];
             }
 
-            // Текст правильного ответа (тоже защита от ошибок)
             String correctText = 'Неизвестно';
             if (q.correct >= 0 && q.correct < q.options.length) {
               correctText = q.options[q.correct];
@@ -224,10 +252,10 @@ class _ResultScreenState extends State<ResultScreen> {
                         topRight: Radius.circular(14),
                         bottomRight: Radius.circular(14),
                       ),
-                      border: Border(
-                        top: const BorderSide(color: Color(0xFFE6E9EF)),
-                        right: const BorderSide(color: Color(0xFFE6E9EF)),
-                        bottom: const BorderSide(color: Color(0xFFE6E9EF)),
+                      border: const Border(
+                        top: BorderSide(color: Color(0xFFE6E9EF)),
+                        right: BorderSide(color: Color(0xFFE6E9EF)),
+                        bottom: BorderSide(color: Color(0xFFE6E9EF)),
                       ),
                     ),
                     child: Column(
@@ -243,7 +271,7 @@ class _ResultScreenState extends State<ResultScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Ваш ответ: $givenText', // ИСПРАВЛЕНО: интерполяция
+                          'Ваш ответ: $givenText',
                           style: TextStyle(
                             fontSize: 13,
                             color: ok
@@ -254,7 +282,7 @@ class _ResultScreenState extends State<ResultScreen> {
                         if (!ok) ...[
                           const SizedBox(height: 3),
                           Text(
-                            'Правильный ответ: $correctText', // ИСПРАВЛЕНО: используем подготовленную переменную
+                            'Правильный ответ: $correctText',
                             style: const TextStyle(
                               fontSize: 13,
                               color: Color(0xFF16A34A),
@@ -264,7 +292,7 @@ class _ResultScreenState extends State<ResultScreen> {
                         if (q.hint != null && q.hint!.isNotEmpty) ...[
                           const SizedBox(height: 6),
                           Text(
-                            'Подсказка: ${q.hint}', // ИСПРАВЛЕНО: выражение в фигурных скобках
+                            'Подсказка: ${q.hint}',
                             style: const TextStyle(
                               fontSize: 12.5,
                               color: Colors.orange,
@@ -279,10 +307,19 @@ class _ResultScreenState extends State<ResultScreen> {
             );
           }),
 
-
           // ==================== КНОПКИ ДЕЙСТВИЙ ====================
           const SizedBox(height: 14),
-
+          ElevatedButton.icon(
+            icon: _saving
+                ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+                : const Icon(Icons.save),
+            label: Text(_saving ? 'Сохранение...' : 'Сохранить на телефон'),
+            onPressed: _saving ? null : _saveToDevice,
+          ),
           OutlinedButton.icon(
             onPressed: _isUploading ? null : _uploadToDisk,
             icon: _isUploading

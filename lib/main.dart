@@ -5,9 +5,18 @@ import 'screens/auth_screen.dart';
 import 'screens/student_home.dart';
 import 'screens/teacher_home.dart';
 import 'storage.dart';
+import 'dart:io';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Настольные платформы: sqflite работает только через FFI-бэкенд.
+  // На Android блок не нужен и не мешает.
+  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
 
   // Инициализация SDK происходит автоматически через AndroidManifest.xml
   // Ручной вызов initialize() больше не нужен

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models.dart';
 import '../storage.dart';
 import '../utils.dart';
+import 'settings_screen.dart';
 
 class ExamScreen extends StatefulWidget {
   final Ticket ticket;
@@ -13,9 +14,12 @@ class ExamScreen extends StatefulWidget {
 }
 
 class _ExamScreenState extends State<ExamScreen> {
+  static const int _secondsPerQuestion = 30;
+
   late final List<int?> _answers;
   int _current = 0;
-  int _remaining = kTimeLimit;
+  late final int _totalTime; // общее время на весь тест
+  int _remaining = 0;
   Timer? _timer;
   bool _finished = false;
 
@@ -23,10 +27,16 @@ class _ExamScreenState extends State<ExamScreen> {
   void initState() {
     super.initState();
     _answers = List<int?>.filled(widget.ticket.questions.length, null);
+    // Общее время: 30 секунд на каждый вопрос билета.
+    _totalTime = widget.ticket.questions.length * _secondsPerQuestion;
+    _remaining = _totalTime;
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() => _remaining--);
-      if (_remaining <= 0) _finish();
+      if (_remaining <= 0) {
+        // Время вышло — завершаем экзамен с тем, что успели ответить.
+        _finish();
+      }
     });
   }
 
@@ -119,7 +129,22 @@ class _ExamScreenState extends State<ExamScreen> {
     final q = questions[_current];
     final answered = _answers.where((a) => a != null).length;
     final isLast = _current == questions.length - 1;
-    final warn = _remaining <= 60;
+
+    // Подсветка таймера: последние 20% времени — жёлтый, последние 10% — красный
+    final warnThreshold = (_totalTime * 0.2).ceil();
+    final dangerThreshold = (_totalTime * 0.1).ceil();
+    final isDanger = _remaining <= dangerThreshold;
+    final isWarn = !isDanger && _remaining <= warnThreshold;
+    final timerColor = isDanger
+        ? const Color(0xFFDC2626)
+        : isWarn
+        ? const Color(0xFFD97706)
+        : const Color(0xFF334155);
+    final timerBg = isDanger
+        ? const Color(0xFFFEE2E2)
+        : isWarn
+        ? const Color(0xFFFEF3C7)
+        : const Color(0xFFF1F5F9);
 
     return PopScope(
       canPop: false,
@@ -139,6 +164,7 @@ class _ExamScreenState extends State<ExamScreen> {
             style: const TextStyle(fontSize: 15),
           ),
           actions: [
+
             Padding(
               padding: const EdgeInsets.only(right: 14),
               child: Center(
@@ -146,7 +172,7 @@ class _ExamScreenState extends State<ExamScreen> {
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
                   decoration: BoxDecoration(
-                    color: warn ? const Color(0xFFFEE2E2) : const Color(0xFFF1F5F9),
+                    color: timerBg,
                     borderRadius: BorderRadius.circular(11),
                   ),
                   child: Text(
@@ -155,7 +181,7 @@ class _ExamScreenState extends State<ExamScreen> {
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
                       fontFeatures: const [FontFeature.tabularFigures()],
-                      color: warn ? const Color(0xFFDC2626) : const Color(0xFF334155),
+                      color: timerColor,
                     ),
                   ),
                 ),
@@ -170,12 +196,16 @@ class _ExamScreenState extends State<ExamScreen> {
               padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
               child: Column(
                 children: [
+                  // Полоса общего времени — тает по мере расхода таймера
                   ClipRRect(
                     borderRadius: BorderRadius.circular(99),
                     child: LinearProgressIndicator(
-                      value: answered / questions.length,
+                      value: _remaining / _totalTime,
                       minHeight: 5,
                       backgroundColor: const Color(0xFFE9EDF3),
+                      valueColor: AlwaysStoppedAnimation(
+                        isDanger ? const Color(0xFFDC2626) : Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -271,8 +301,8 @@ class _ExamScreenState extends State<ExamScreen> {
                         },
                         icon: const Icon(Icons.lightbulb, size: 18, color: Colors.orange),
                         label: const Text(
-                            'Показать подсказку',
-                            style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w600)
+                          'Показать подсказку',
+                          style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w600),
                         ),
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

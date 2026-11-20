@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../models.dart';
+import '../services/database_service.dart';
+import '../services/public_sync_service.dart';
 import '../storage.dart';
 import '../utils.dart';
 import 'exam_screen.dart';
 import 'result_screen.dart';
+import 'settings_screen.dart';
 
 class StudentHome extends StatefulWidget {
   const StudentHome({super.key});
@@ -15,12 +18,61 @@ class StudentHome extends StatefulWidget {
 
 class _StudentHomeState extends State<StudentHome> {
   int _index = 0;
+  bool _syncing = false;
+  List<Ticket> _tickets = const [];
 
   static const _titles = [
     'Экзаменационные билеты',
     'История попыток',
     'Профиль'
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTickets();
+  }
+
+  Future<void> _loadTickets() async {
+    try {
+      final list = await DatabaseService.instance.loadTickets();
+      if (!mounted) return;
+      setState(() => _tickets = list);
+    } catch (_) {}
+  }
+
+  Future<void> _syncData() async {
+    if (_syncing) return;
+    setState(() => _syncing = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+          content: Text('Обновление данных...'),
+          duration: Duration(minutes: 1)),
+    );
+    try {
+      final stats = await PublicSyncService.syncFromPublicUrl(
+          PublicSyncService.encodedDefault);
+      await _loadTickets();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: Colors.green,
+        content: Text(
+            'Обновлено: билетов — ${stats.tickets}, студентов — ${stats.students}'),
+      ));
+      setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: Colors.red,
+        content: Text('Ошибка синхронизации: $e'),
+      ));
+    } finally {
+      _syncing = false;
+      if (mounted) setState(() {});
+    }
+  }
 
   Future<void> _startExam(Ticket ticket) async {
     final result = await Navigator.of(context).push<ExamResult>(
@@ -61,11 +113,31 @@ class _StudentHomeState extends State<StudentHome> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: _syncing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.cloud_download),
+            tooltip: 'Обновить данные',
+            onPressed: _syncing ? null : _syncData,
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Настройки',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            ),
+          ),
+        ],
       ),
       body: IndexedStack(
         index: _index,
         children: [
-          _TicketsTab(onStart: _startExam),
+          _TicketsTab(onStart: _startExam, tickets: _tickets),
           const _HistoryTab(),
           const _ProfileTab(),
         ],
@@ -95,14 +167,14 @@ class _StudentHomeState extends State<StudentHome> {
 // ==================== БИЛЕТЫ ====================
 class _TicketsTab extends StatelessWidget {
   final void Function(Ticket) onStart;
+  final List<Ticket> tickets;
 
-  const _TicketsTab({required this.onStart});
+  const _TicketsTab({required this.onStart, required this.tickets});
 
   @override
   Widget build(BuildContext context) {
     final storage = AppStorage.instance;
     final user = storage.currentUser!;
-    final tickets = storage.db.tickets;
     final results = storage.resultsFor(user.id);
     final best = storage.bestResultsFor(user.id);
 
@@ -112,6 +184,23 @@ class _TicketsTab extends StatelessWidget {
         : (results.map((r) => r.percent).reduce((a, b) => a + b) /
                 results.length)
             .round();
+
+    if (tickets.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
+        children: const [
+          SizedBox(height: 80),
+          Center(
+            child: Text(
+              '📭\n\nБилетов пока нет.\nНажмите ⛅ вверху, чтобы загрузить их с сервера.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: Color(0xFF64748B), fontSize: 14, height: 1.5),
+            ),
+          ),
+        ],
+      );
+    }
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
@@ -513,7 +602,7 @@ class _ProfileTab extends StatelessWidget {
           ),
           child: const Text(
             'Тестирование по экзаменационным билетам.\n'
-            'Проходной балл — 60%, время на билет — 15 минут.\n'
+            'Проходной балл — 60%, на билет даётся 30 секунд на вопрос.\n'
             'Результаты сохраняются на устройстве.',
             style: TextStyle(
                 fontSize: 13.5, color: Color(0xFF64748B), height: 1.6),

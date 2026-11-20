@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,12 +7,45 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
 import 'utils.dart';
 
+/// Регистрационный код преподавателя: одноразовый, выдаётся администратором.
+class TeacherCode {
+  final String code;
+  final bool used;
+  final String usedBy;
+  final DateTime createdAt;
+
+  const TeacherCode({
+    required this.code,
+    this.used = false,
+    this.usedBy = '',
+    required this.createdAt,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'code': code,
+    'used': used,
+    'usedBy': usedBy,
+    'createdAt': createdAt.toIso8601String(),
+  };
+
+  factory TeacherCode.fromJson(Map<String, dynamic> j) => TeacherCode(
+    code: (j['code'] ?? '').toString(),
+    used: j['used'] == true,
+    usedBy: (j['usedBy'] ?? '').toString(),
+    createdAt: DateTime.tryParse('${j['createdAt']}') ?? DateTime.now(),
+  );
+}
+
 class AppStorage extends ChangeNotifier {
   AppStorage._();
   static final AppStorage instance = AppStorage._();
 
   static const _dbKey = 'exam_app_db_v1';
   static const _sessionKey = 'exam_app_session_v1';
+  static const _codesKey = 'exam_app_teacher_codes_v1';
+
+  /// Ключ шифрования регистрационных кодов (по аналогии со ссылкой на Диск).
+  static const _codeXorKey = 'exam2026';
 
   late AppDatabase db;
   Student? currentUser;
@@ -19,6 +53,9 @@ class AppStorage extends ChangeNotifier {
   final ValueNotifier<Student?> currentUserNotifier = ValueNotifier(null);
 
   SharedPreferences? _prefs;
+
+  /// Регистрационные коды преподавателей. Хранятся зашифрованными.
+  final List<TeacherCode> _teacherCodes = [];
 
   Future<void> load() async {
     _prefs = await SharedPreferences.getInstance();
@@ -41,6 +78,8 @@ class AppStorage extends ChangeNotifier {
       currentUser = _findStudent(sessionId);
       currentUserNotifier.value = currentUser;
     }
+
+    await _loadCodes();
   }
 
   Future<void> _persist() async {
@@ -53,6 +92,125 @@ class AppStorage extends ChangeNotifier {
     }
     return null;
   }
+
+  // ==================== РЕГИСТРАЦИОННЫЕ КОДЫ ПРЕПОДАВАТЕЛЕЙ ====================
+
+  /// Шифрует строку (XOR + Base64) — так же, как ссылка на Диск.
+  /// Публичный метод: им пользуется и PublicSyncService для файлов .ecod.
+  static String encodeCode(String input) {
+    final bytes = utf8.encode(input);
+    final out = <int>[
+      for (var i = 0; i < bytes.length; i++)
+        bytes[i] ^ _codeXorKey.codeUnitAt(i % _codeXorKey.length),
+    ];
+    return base64Encode(out);
+  }
+
+  /// Расшифровывает строку. Возвращает пустую строку при сбое.
+  static String decodeCode(String input) {
+    try {
+      final raw = base64Decode(input.replaceAll('\n', ' ').trim());
+      return utf8.decode([
+        for (var i = 0; i < raw.length; i++)
+          raw[i] ^ _codeXorKey.codeUnitAt(i % _codeXorKey.length),
+      ]);
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Future<void> _loadCodes() async {
+    _teacherCodes.clear();
+    final raw = _prefs?.getString(_codesKey);
+    if (raw == null) return;
+    try {
+      final list = jsonDecode(raw) as List;
+      for (final e in list) {
+        try {
+          final obj = jsonDecode(decodeCode(e as String));
+          if (obj is Map<String, dynamic>) {
+            _teacherCodes.add(TeacherCode.fromJson(obj));
+          }
+        } catch (_) {
+          // повреждённый код пропускаем, остальные остаются рабочими
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _persistCodes() async {
+    final encrypted = [
+      for (final c in _teacherCodes) encodeCode(jsonEncode(c.toJson())),
+    ];
+    await _prefs?.setString(_codesKey, jsonEncode(encrypted));
+  }
+
+  /// Генерирует новый одноразовый код преподавателя и возвращает его.
+  /// Вызывается из админского экрана; код показывается один раз,
+  /// дальше его можно только скопировать из списка.
+  Future<String> generateTeacherCode() async {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // без 0/O и 1/I
+    final rnd = Random.secure();
+    String group() =>
+        List.generate(4, (_) => alphabet[rnd.nextInt(alphabet.length)]).join();
+    final code = 'TCH-${group()}-${group()}';
+    _teacherCodes.add(TeacherCode(code: code, createdAt: DateTime.now()));
+    await _persistCodes();
+    notifyListeners();
+    return code;
+  }
+
+  /// Список кодов для админского экрана (в расшифрованном виде).
+  List<TeacherCode> get teacherCodes => List.unmodifiable(_teacherCodes);
+
+  /// Проверяет код без расходования: существует и ещё не использован.
+  bool isTeacherCodeValid(String input) {
+    final c = input.trim().toUpperCase();
+    return _teacherCodes.any((t) => t.code == c && !t.used);
+  }
+
+  /// Помечает код использованным за логином преподавателя.
+  /// Возвращает false, если код не найден или уже израсходован.
+  Future<bool> consumeTeacherCode(String input, String login) async {
+    final c = input.trim().toUpperCase();
+    final idx = _teacherCodes.indexWhere((t) => t.code == c && !t.used);
+    if (idx == -1) return false;
+    _teacherCodes[idx] = TeacherCode(
+      code: c,
+      used: true,
+      usedBy: login,
+      createdAt: _teacherCodes[idx].createdAt,
+    );
+    await _persistCodes();
+    notifyListeners();
+    return true;
+  }
+
+  /// Удаляет неиспользованный код. Использованные не удаляются —
+  /// остаются в списке как история.
+  Future<void> deleteTeacherCode(String code) async {
+    _teacherCodes.removeWhere((t) => t.code == code && !t.used);
+    await _persistCodes();
+    notifyListeners();
+  }
+
+  /// Добавляет код, пришедший при синхронизации с Диска (.ecod).
+  /// Локально уже израсходованный код не переводится обратно в «свободный»:
+  /// применяется только вход нового кода или переход в «использован».
+  Future<void> mergeRemoteTeacherCode(TeacherCode c) async {
+    final idx = _teacherCodes.indexWhere((t) => t.code == c.code);
+    if (idx == -1) {
+      _teacherCodes.add(c);
+      await _persistCodes();
+      notifyListeners();
+    } else if (c.used && !_teacherCodes[idx].used) {
+      _teacherCodes[idx] = c;
+      await _persistCodes();
+      notifyListeners();
+    }
+  }
+
+  // ==================== АККАУНТЫ ====================
 
   // Активация премиум-доступа
   Future<void> activatePro(String studentId) async {
@@ -93,18 +251,34 @@ class AppStorage extends ChangeNotifier {
     return 'Неверный логин или пароль';
   }
 
+  /// Регистрация студента. Если учётка с таким логином уже существует
+  /// (выдана преподавателем через students.json или создана ранее),
+  /// а пароль совпадает — просто выполняем вход: человек доказал,
+  /// что это его аккаунт. При чужом пароле — понятное сообщение.
   Future<String?> register({
     required String name,
     required String group,
     required String login,
     required String password,
   }) async {
-    final hasPro = db.students.any((s) => s.isPro);
-    final studentCount = db.students.where((s) => !s.isTeacher).length;
-
     if (password.length < 4) return 'Пароль должен быть не короче 4 символов';
-    if (db.students.any((s) => s.login.toLowerCase() == login.toLowerCase())) {
-      return 'Такой логин уже занят';
+
+    final l = login.trim().toLowerCase();
+    final existing = db.students
+        .where((s) => s.login.toLowerCase() == l)
+        .toList();
+
+    if (existing.isNotEmpty) {
+      final s = existing.first;
+      if (s.password == password) {
+        currentUser = s;
+        await _prefs?.setString(_sessionKey, s.id);
+        currentUserNotifier.value = s;
+        notifyListeners();
+        return null;
+      }
+      return 'Такой логин уже занят. Если это ваш логин — войдите '
+          'на вкладке «Вход» с выданным паролем, либо выберите другой';
     }
 
     final s = Student(
@@ -122,6 +296,32 @@ class AppStorage extends ChangeNotifier {
     currentUserNotifier.value = s;
     notifyListeners();
     return null;
+  }
+
+  /// Регистрирует преподавателя. Возвращает false, если логин занят
+  /// или пароль короче 4 символов. Сам код проверяется и расходуется
+  /// на экране регистрации — до и после вызова этого метода.
+  Future<bool> registerTeacher({
+    required String name,
+    required String login,
+    required String password,
+  }) async {
+    final l = login.trim().toLowerCase();
+    if (l.isEmpty || password.length < 4) return false;
+    if (db.students.any((s) => s.login.toLowerCase() == l || s.id == l)) {
+      return false;
+    }
+    db.students.add(Student(
+      id: 'teacher_${DateTime.now().microsecondsSinceEpoch}',
+      name: name.trim(),
+      group: '',
+      login: l,
+      password: password,
+      role: 'teacher',
+    ));
+    await _persist();
+    notifyListeners();
+    return true;
   }
 
   Future<void> logout() async {
@@ -162,9 +362,6 @@ class AppStorage extends ChangeNotifier {
     required String login,
     required String password,
   }) async {
-    final hasPro = db.students.any((s) => s.isPro);
-    final studentCount = db.students.where((s) => !s.isTeacher).length;
-
     if (db.students.any((s) => s.login.toLowerCase() == login.toLowerCase())) {
       return 'Такой логин уже занят';
     }
@@ -182,6 +379,67 @@ class AppStorage extends ChangeNotifier {
     await _persist();
     notifyListeners();
     return null;
+  }
+
+  /// Дописывает студентов из синхронизации во внутреннюю базу.
+  /// Совпадение ищется по id, а при непустом логине — ещё и по логину.
+  Future<void> applySyncStudents(List<Student> incoming) async {
+    var changed = false;
+    for (final s in incoming) {
+      final idx = db.students.indexWhere((e) =>
+      e.id == s.id ||
+          (s.login.isNotEmpty &&
+              e.login.toLowerCase() == s.login.toLowerCase()));
+      if (idx == -1) {
+        db.students.add(s);
+        changed = true;
+      } else if (s.login.isNotEmpty) {
+        db.students[idx] = s;
+        changed = true;
+      }
+    }
+    if (changed) {
+      await _persist();
+      notifyListeners();
+    }
+  }
+
+  /// Дописывает билеты из синхронизации во внутреннюю базу.
+  Future<void> applySyncTickets(List<Ticket> incoming) async {
+    var changed = false;
+    for (final t in incoming) {
+      final idx = db.tickets.indexWhere((e) => e.id == t.id);
+      if (idx == -1) {
+        db.tickets.add(t);
+        changed = true;
+      } else {
+        db.tickets[idx] = t;
+        changed = true;
+      }
+    }
+    if (changed) {
+      await _persist();
+      notifyListeners();
+    }
+  }
+
+  /// Дописывает результаты из синхронизации. Дубликаты отсеиваются:
+  /// тот же студент + тот же билет + то же время попытки уже есть — пропускаем.
+  Future<void> applySyncResults(List<ExamResult> incoming) async {
+    var changed = false;
+    for (final r in incoming) {
+      final exists = db.results.any((e) =>
+      e.studentId == r.studentId &&
+          e.ticketId == r.ticketId &&
+          e.date.millisecondsSinceEpoch == r.date.millisecondsSinceEpoch);
+      if (exists) continue;
+      db.results.add(r);
+      changed = true;
+    }
+    if (changed) {
+      await _persist();
+      notifyListeners();
+    }
   }
 
   Future<void> deleteStudent(String id) async {

@@ -2,10 +2,20 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:yandex_disk/yandex_disk.dart';
 import '../models.dart';
+import '../storage.dart';
 import 'token_storage.dart';
 
 class YandexDiskService {
   static const String _baseUrl = 'https://cloud-api.yandex.net';
+
+  /// Папка результатов внутри опубликованной папки exam_data.
+  /// PublicSyncService._walk обходит дерево рекурсивно и подхватывает
+  /// result_*.json оттуда при синхронизации.
+  static const String resultsFolder = '/exam_data/exam_results';
+
+  /// Папка кодов преподавателей внутри exam_data: файлы вида
+  /// TCH_XXXX_XXXX.ecod.
+  static const String codesFolder = '/exam_data/code';
 
   Future<void> uploadResult({
     required ExamResult result,
@@ -15,7 +25,7 @@ class YandexDiskService {
     final token = await TokenStorage.getToken();
     if (token == null) throw Exception('Требуется авторизация в Яндексе');
 
-    await _ensureFolderExists(token);
+    await _ensureFolderExists(token, resultsFolder);
 
     final api = YandexDiskApi(_baseUrl, token);
     final report = _buildReport(result, ticket, student);
@@ -24,7 +34,7 @@ class YandexDiskService {
 
     final fileName = 'result_${student.name.replaceAll(' ', '_')}_'
         '${ticket.id}_${DateTime.now().millisecondsSinceEpoch}.json';
-    final path = '/exam_results/$fileName';
+    final path = '$resultsFolder/$fileName';
 
     try {
       await api.uploadDiskResource(
@@ -40,18 +50,76 @@ class YandexDiskService {
     }
   }
 
-  /// Создаёт папку exam_results, если её ещё нет.
-  Future<void> _ensureFolderExists(String token) async {
+  /// Выгружает регистрационный код преподавателя в /exam_data/code
+  /// файлом вида TCH_XXXX_XXXX.ecod. Содержимое — зашифрованный
+  /// (XOR + Base64) JSON кода, тем же способом, что и ссылка на папку.
+  Future<void> uploadTeacherCode(TeacherCode code) async {
+    final token = await TokenStorage.getToken();
+    if (token == null) throw Exception('Требуется авторизация в Яндексе');
+
+    await _ensureFolderExists(token, codesFolder);
+
+    final api = YandexDiskApi(_baseUrl, token);
+    final content = AppStorage.encodeCode(jsonEncode(code.toJson()));
+    final bytes = utf8.encode(content);
+
+    final fileName =
+        '${code.code.replaceAll(RegExp(r'[^A-Z0-9]', caseSensitive: false), '_')}.ecod';
+    final path = '$codesFolder/$fileName';
+
+    try {
+      await api.uploadDiskResource(
+        path: path,
+        binaryData: bytes,
+        overwrite: true,
+      );
+      print('DISK CODE UPLOAD OK: $path');
+    } on DioError catch (e) {
+      print('DISK CODE STATUS: ${e.response?.statusCode}');
+      print('DISK CODE BODY: ${e.response?.data}');
+      rethrow;
+    }
+  }
+
+  /// Удаляет файл кода с Диска (при регистрации по коду и при удалении
+  /// неиспользованного кода админом).
+  Future<void> deleteTeacherCode(String code) async {
+    final token = await TokenStorage.getToken();
+    if (token == null) return; // нет токена — нет удаления, тихо
+
+    final fileName =
+        '${code.replaceAll(RegExp(r'[^A-Z0-9]', caseSensitive: false), '_')}.ecod';
+    final path = '$codesFolder/$fileName';
+
     final dio = Dio(BaseOptions(
       baseUrl: _baseUrl,
       headers: {'Authorization': 'OAuth $token'},
     ));
     try {
-      await dio.put('/v1/disk/resources',
-          queryParameters: {'path': '/exam_results'});
-      print('DISK FOLDER CREATED: /exam_results');
+      await dio.delete('/v1/disk/resources', queryParameters: {
+        'path': path,
+        'permanently': 'true',
+      });
+      print('DISK CODE DELETE OK: $path');
     } on DioError catch (e) {
-      // 409 = папка уже существует — это не ошибка, продолжаем.
+      if (e.response?.statusCode == 404) return;
+      print('DISK CODE DELETE ERROR: '
+          '${e.response?.statusCode} ${e.response?.data}');
+      rethrow;
+    }
+  }
+
+  /// Создаёт папку на Диске, если её ещё нет. 409 = уже существует —
+  /// не ошибка.
+  Future<void> _ensureFolderExists(String token, String folder) async {
+    final dio = Dio(BaseOptions(
+      baseUrl: _baseUrl,
+      headers: {'Authorization': 'OAuth $token'},
+    ));
+    try {
+      await dio.put('/v1/disk/resources', queryParameters: {'path': folder});
+      print('DISK FOLDER CREATED: $folder');
+    } on DioError catch (e) {
       if (e.response?.statusCode != 409) {
         print(
             'DISK FOLDER ERROR: ${e.response?.statusCode} ${e.response?.data}');

@@ -4,9 +4,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../models.dart';
+import '../services/public_sync_service.dart';
 import '../storage.dart';
 import '../utils.dart';
 import 'ticket_editor.dart';
+import 'settings_screen.dart';
 
 class TeacherHome extends StatefulWidget {
   const TeacherHome({super.key});
@@ -17,8 +19,42 @@ class TeacherHome extends StatefulWidget {
 
 class _TeacherHomeState extends State<TeacherHome> {
   int _index = 0;
+  bool _syncing = false;
 
   static const _titles = ['Студенты', 'Билеты', 'Результаты', 'Профиль'];
+
+  // ==================== СИНХРОНИЗАЦИЯ ====================
+  Future<void> _syncData() async {
+    if (_syncing) return;
+    setState(() => _syncing = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+          content: Text('Обновление данных...'),
+          duration: Duration(minutes: 1)),
+    );
+    try {
+      final stats = await PublicSyncService
+          .syncFromPublicUrl(PublicSyncService.encodedDefault);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: Colors.green,
+        content: Text(
+            'Обновлено: билетов — ${stats.tickets}, студентов — ${stats.students}'),
+      ));
+      setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: Colors.red,
+        content: Text('Ошибка синхронизации: $e'),
+      ));
+    } finally {
+      _syncing = false;
+      if (mounted) setState(() {});
+    }
+  }
 
   // ==================== СТУДЕНТЫ ====================
   Future<void> _addStudent() async {
@@ -44,7 +80,7 @@ class _TeacherHomeState extends State<TeacherHome> {
                     controller: nameCtrl,
                     decoration: const InputDecoration(labelText: 'ФИО'),
                     validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Введите ФИО' : null,
+                    (v == null || v.trim().isEmpty) ? 'Введите ФИО' : null,
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
@@ -210,13 +246,13 @@ class _TeacherHomeState extends State<TeacherHome> {
         content: const SingleChildScrollView(
           child: Text(
             '[\n'
-            '  {\n'
-            '    "name": "Иванов Иван",\n'
-            '    "group": "ИС-21",\n'
-            '    "login": "ivanov",\n'
-            '    "password": "1234"\n'
-            '  }\n'
-            ']',
+                '  {\n'
+                '    "name": "Иванов Иван",\n'
+                '    "group": "ИС-21",\n'
+                '    "login": "ivanov",\n'
+                '    "password": "1234"\n'
+                '  }\n'
+                ']',
             style: TextStyle(fontFamily: 'monospace', fontSize: 12),
           ),
         ),
@@ -370,8 +406,7 @@ class _TeacherHomeState extends State<TeacherHome> {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 14.5, fontWeight: FontWeight.w600,
                                 height: 1.3),
                           ),
                           const SizedBox(height: 3),
@@ -472,18 +507,18 @@ class _TeacherHomeState extends State<TeacherHome> {
         content: const SingleChildScrollView(
           child: Text(
             '[\n'
-            '  {\n'
-            '    "title": "Билет 7. Тема",\n'
-            '    "questions": [\n'
-            '      {\n'
-            '        "text": "Текст вопроса?",\n'
-            '        "options": ["А", "Б", "В", "Г"],\n'
-            '        "correct": 0,\n'
-            '        "hint": "Необязательная подсказка"\n'
-            '      }\n'
-            '    ]\n'
-            '  }\n'
-            ']',
+                '  {\n'
+                '    "title": "Билет 7. Тема",\n'
+                '    "questions": [\n'
+                '      {\n'
+                '        "text": "Текст вопроса?",\n'
+                '        "options": ["А", "Б", "В", "Г"],\n'
+                '        "correct": 0,\n'
+                '        "hint": "Необязательная подсказка"\n'
+                '      }\n'
+                '    ]\n'
+                '  }\n'
+                ']',
             style: TextStyle(fontFamily: 'monospace', fontSize: 12),
           ),
         ),
@@ -516,6 +551,26 @@ class _TeacherHomeState extends State<TeacherHome> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: _syncing
+                ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.cloud_download),
+            tooltip: 'Обновить данные',
+            onPressed: _syncing ? null : _syncData,
+          ),
+
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Настройки',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            ),
+          ),
+
           if (_index == 0) ...[
             IconButton(
               icon: const Icon(Icons.help_outline, color: Color(0xFF64748B)),
@@ -546,15 +601,15 @@ class _TeacherHomeState extends State<TeacherHome> {
       ),
       floatingActionButton: switch (_index) {
         0 => FloatingActionButton.extended(
-            onPressed: _addStudent,
-            icon: const Icon(Icons.person_add_alt_1),
-            label: const Text('Студент'),
-          ),
+          onPressed: _addStudent,
+          icon: const Icon(Icons.person_add_alt_1),
+          label: const Text('Студент'),
+        ),
         1 => FloatingActionButton.extended(
-            onPressed: _createTicket,
-            icon: const Icon(Icons.add),
-            label: const Text('Билет'),
-          ),
+          onPressed: _createTicket,
+          icon: const Icon(Icons.add),
+          label: const Text('Билет'),
+        ),
         _ => null,
       },
       body: IndexedStack(
@@ -622,8 +677,8 @@ class _StudentsTab extends StatelessWidget {
         final avg = results.isEmpty
             ? 0
             : (results.map((r) => r.percent).reduce((a, b) => a + b) /
-                    results.length)
-                .round();
+            results.length)
+            .round();
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 9),
@@ -714,7 +769,7 @@ class _MiniStat extends StatelessWidget {
         children: [
           Text(value,
               style:
-                  const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+              const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
           Text(label,
               style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
         ],
@@ -746,7 +801,7 @@ class _TeacherResultsTab extends StatelessWidget {
       itemBuilder: (context, i) {
         final r = results[i];
         final student = storage.db.students.firstWhere(
-          (s) => s.id == r.studentId,
+              (s) => s.id == r.studentId,
           orElse: () => const Student(
             id: '',
             login: '',
@@ -900,7 +955,7 @@ class _TeacherProfileTab extends StatelessWidget {
             side: const BorderSide(color: Color(0xFFFECACA)),
             backgroundColor: const Color(0xFFFEF2F2),
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
         ),
       ],
